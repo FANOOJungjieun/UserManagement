@@ -1,3 +1,5 @@
+from django.contrib.auth import authenticate
+from django.utils import timezone
 from rest_framework import serializers # setting에서 추가했던 rest_framework 앱
 
 from authentication.models import User
@@ -32,4 +34,54 @@ class RegistrationSerializer(serializers.ModelSerializer): # serializers.ModelSe
     def create(self, validated_data):
 
         return User.objects.create_user(**validated_data)
+
+
+
+class LoginSerializer(serializers.Serializer): # serializers.Serializer상속받음
+    email = serializers.EmailField()
+    # 1. password는 읽히면 안 되므로 write_only. 나머지는 수정하면 안 되므로 read_only
+    username = serializers.CharField(max_length=255, read_only=True)
+    password = serializers.CharField(max_length=128, write_only=True)
+    last_login = serializers.CharField(max_length=255, read_only=True)
+    
+    # 2. LoginSerializer의 인스턴스가 유효한지 판별
+    def validate(self, data):
+        email = data.get('email', None)
+        password = data.get('password', None)
+        
+        # 3. data로 전달받은 email,password가 제대로 있는지 판별
+        if email is None:
+            raise serializers.ValidationError(
+                'An email address is required to log in.'
+            )
+        
+        if password is None:
+            raise serializers.ValidationError(
+                'A password is required to log in.'
+            )
+        
+        # 4. data로 받아온 값과 db에 저장된 값을 비교해 해당하는 유저를 찾아냄. 없을시 none
+        user = authenticate(username=email, password=password)
+        
+        # 5. 4번의 오류 메시지
+        if user is None:
+            raise serializers.ValidationError(
+                'A user with this email and password was not found'
+            )
+        
+        if not user.is_active:
+            raise serializers.ValidationError(
+                'This user has been deactivated.'
+            )
+        
+        # 6. 마지막 로그인 시간 업데이트
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+        
+        # 7. 결과값 반환
+        return {
+            'email': user.email,
+            'username': user.username,
+            'last_login': user.last_login
+        }
         
