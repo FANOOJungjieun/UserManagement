@@ -1,9 +1,13 @@
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated # permission_classes 에 넣어줄 옵션
 from rest_framework.response import Response
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.views import APIView
 
-from .serializers import RegistrationSerializer, LoginSerializer
+from .serializers import (
+    RegistrationSerializer, LoginSerializer, UserSerializer #만든 클래스들 이곳에 추가
+    )
+
 from .renderers import UserJSONRenderer
 
 # Create your views here.
@@ -42,4 +46,30 @@ class LoginAPIView(APIView):
         serializer.is_valid(raise_exception=True)
         
         # 4. 정보 반환
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserRetrieveUpdateAPIView(RetrieveUpdateAPIView):
+    permission_classes = (IsAuthenticated,)
+    renderer_classes = (UserJSONRenderer,)
+    serializer_class = UserSerializer
+    
+    # 1.RetrieveUpdateAPIView에서 제공하는 get메소드. 업데이트를 위해 기존 자료를 불러옴.
+    def get(self, request, *args, **kwargs):
+        # 2. user객체를 client에 보내주는 용도.
+        serializer = self.serializer_class(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # 3. 객체 부분 업데이트 method
+    def patch(self, request, *args, **kwargs):
+        serializer_data = request.data
+        # 4.instance(request.user), validated_data(serializer_data)를 serializer에 전달
+        serializer = self.serializer_class(
+            request.user, data=serializer_data, partial=True # 부분업데이트 가능
+        )
+        
+        serializer.is_valid(raise_exception=True)
+        # 5. 업데이트된 객체 저장
+        serializer.save()
+        
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -84,4 +84,45 @@ class LoginSerializer(serializers.Serializer): # serializers.Serializer상속받
             'username': user.username,
             'last_login': user.last_login
         }
+
+# 1.User 객체를 serialization 과 deserialization을 처리
+class UserSerializer(serializers.ModelSerializer):
+    
+    # 2. 쓰기 옵션만 활성화
+    password = serializers.CharField(
+        max_length=128,
+        min_length=8,
+        write_only=True
+    )
+    
+    class Meta:
+        model = User
+        fields = [
+            'email',
+            'username',
+            'password',
+            'token'
+        ]
+        
+        # 3.'read_only_fields' 옵션은 각 field에 'read_only=True'와 같은 역할
+        read_only_fields = ('token', )
+        
+    # 4.사용자의 정보를 업데이트 할 때 실행
+    def update(self, instance, validated_data):
+        # 5.password는 다른 field들과 달리 'setattr'로 처리하면 안됨.
+        password = validated_data.pop('password', None)
+        
+        # 6.변경된 데이터 목록을 for문으로 순회
+        for (key, value) in validated_data.items():
+            # 7.속성을 추가하거나(key가객체가 없을경우) 속성값을 바꾸는 함수.(객체,속성명,속성값)
+            setattr(instance, key, value)
+
+        if password is not None:
+            # 8.password수정
+            instance.set_password(password)
+
+        # 9. 객체 정보 저장
+        instance.save()
+
+        return instance
         
